@@ -1,0 +1,9 @@
+o	sample.py - This is used to convert main osm file and sample it to take every kth level element. 
+o	mapparser.py – To see different top-level elements in our file
+o	tags.py – To look at what pattern’s the k tag’s and value fall into
+o	audit.py – To address inconsistencies with street address  
+o	data.py ¬- To convert xml to csv using schema
+o	schema.py – Schema used for creating csv files
+o	CSVtoDatabase.py – Converting CSV files to single database
+o	query.py – All queries performed on above created database
+o       user.py - To count no of unique users id 

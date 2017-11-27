@@ -1,0 +1,6 @@
+https://mapzen.com/data/metro-extracts/metro/hyderabad_india/
+https://gist.github.com/swwelch/f1144229848b407e0a5d13fcb7fbbd6f
+https://gist.github.com/carlward/54ec1c91b62a5f911c42#file-sample_project-md
+https://stackoverflow.com/questions/2887878/importing-a-csv-file-into-a-sqlite3-database-table-using-python
+https://pythonspot.com/en/mysql-with-python/
+http://support.esri.com/en/technical-article/000011656
