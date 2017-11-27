@@ -1,0 +1,179 @@
+---
+title: "Stroop's Effect"
+author: "Sai Saketh Boyanapalli"
+date: "October 16, 2017"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Stroop's effect:
+
+Famous experiment performed by J. Ridley Stroop who discovered that when a person is said to say the color of ink on a word. It is found that time taken to say color of Congruent words i.e., the words that have same color printed as the word. E.g. Red, Green, Blue. Is less than that of time taken to say the color of Incongruent word i.e., words that have different ink and word. E.g. Red, Green, Blue.  
+
+Here I investigate this effect by taking a sample data of participants who have performed this experiment.
+
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+stroopdata <- read.csv("stroopdata.csv") # read data into data frame
+```
+
+Test:
+
+We have sample data of 24 participants who have performed stroop's task.
+
+This test uses a within subject design i.e., same user performs both task
+
+###Independent variables:
+
+Type of words displayed on screen: Congruent words & Incongruent words.
+
+###Dependent variable:
+Time, it takes to complete the task.
+
+Here the population parameters are not available.
+
+we can perform a dependent t - test for paired samples. 
+
+Research question:
+Does it take more time to complete the task with Incongruent words than it takes to complete task with Congruent words?
+
+Hypothesis
+
+H_0: The Population mean of time taken to complete the task using Congruent words is less than or equal to that of using Incongruent words, in other words the population mean difference of completing task is less than or equal to zero.  
+
+H_0: µ_d??? 0
+
+H_1: The population mean of time taken to complete the task using Incongruent words is greater than that of using Congruent words, the population mean difference in time taken to complete the tasks is greater than zero. 
+
+H_1: µ_d>0
+
+
+Assumptions
+
+1. dependent variable is continous.
+2. t - test assumes that the data is normally distributed.
+3. There are no outlier's in the data.
+4. observations are independent of one another.
+
+Let's look at our sample data
+
+```{r}
+ggplot(aes(x = Congruent), data = stroopdata) +
+  geom_histogram(binwidth = 2) + geom_freqpoly(binwidth = 3) +
+  xlab('Time') + ggtitle('distribution of times for congruent task')
+```
+
+We can see that the data is approximately normally distributed.
+
+```{r}
+ggplot(aes(x = Incongruent), data = stroopdata) +
+  geom_histogram(binwidth = 2) + geom_freqpoly(binwidth = 3) +
+  xlab('Time') + ggtitle('distribution of times for congruent task')
+```
+
+Here we see that the data is not normally distributed. 
+Let's take a look at boxplot of Incongruent task to find outliers in the data.
+
+```{r}
+boxplot(stroopdata$Incongruent)
+```
+
+Box plot shows that they are 2 outliers in the data.
+Creating a new data frame by removing those outliers in the data.
+
+```{r}
+newstroopsData = subset(stroopdata, Incongruent < 30) # subsetting data with incongruent time observations less than 30.
+```
+
+lets again take a look at histogram.
+
+```{r}
+ggplot(aes(x = Incongruent), data = newstroopsData) +
+  geom_histogram(binwidth = 2) + geom_freqpoly(binwidth = 3) +
+  xlab('Time') + ggtitle('distribution of times for Incongruent task')
+```
+
+This approximates to normal distribution.
+
+## Dependent paired t - test.
+### sample parameters
+```{r}
+nrow(newstroopsData) # No of observations in our sample data.
+```
+
+```{r}
+summary(newstroopsData) # calculates summary statistics
+```
+
+Mean, Median of Congruent task are 13.96, 14.36.
+
+similarly Mean, Median of Incongruent task are 20.86, 20.82.
+
+Degree of freedom = n - 1
+
+```{r}
+dof <- nrow(newstroopsData) - 1 #degrees of freedom
+dof
+```
+
+
+```{r}
+# sample standard deviation of congruent task
+sqrt(sum((newstroopsData$Congruent - mean(newstroopsData$Congruent))^2)/(dof))
+```
+
+```{r}
+# sample standard deviation of Incongruent task
+sqrt(sum((newstroopsData$Incongruent - mean(newstroopsData$Incongruent))^2)/(dof))
+```
+ 
+```{r}
+# Difference of paired observations
+newstroopsData$di <- newstroopsData$Incongruent - newstroopsData$Congruent 
+```
+
+```{r}
+# Mean of the differences pair
+mean(newstroopsData$di)
+```
+
+```{r}
+# standard deviation of differences
+sd(newstroopsData$di) 
+```
+
+```{r}
+# standard error of sampling ditribution d bar
+sd(newstroopsData$di)/sqrt(nrow(newstroopsData))
+```
+
+Perfroming a Upper tailed t- test on sample data.
+Taking differences in means of population - 0.
+at aplha - 0.05 
+
+```{r}
+t.test(newstroopsData$Incongruent, newstroopsData$Congruent, paired = T, mu = 0, alternative = "greater", conf.level = 0.95)
+```
+
+Finding's
+I reject the null hypothesis in favor of alternate hypothesis at alpha 0.05. 
+And conclude that with statistical significance the difference in means is greater than 0.
+t - statistic is 9.5411,  p - value = 0
+95% CONFIDENCE INTERVAL 5.669 - INF
+
+Conclusion
+This indeed strengths the theory of Stroops's effect that it takes more time to correctly predict the ink of a word when the ink's color and word don't match with each other.
+
+This is because our brains process words faster than color. This indicates selective attention. That is, it is easy to ignore some features than others. This test is used to measure cognitive functioning of our brain.
+
+Further research can be done by comparing performance of children with adults. Do we tend to do better or worse as we age?
+
+Testing this effect on other languages which are not known to test subject will help us understand the claim that we tend more towards reading the word rather than perceiving color.
+
+References:
+http://www.statisticssolutions.com/manova-analysis-paired-sample-t-test/
+http://www.udacity.com/
