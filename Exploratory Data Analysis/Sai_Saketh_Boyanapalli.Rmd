@@ -1,0 +1,632 @@
+---
+title: "Exploratory Data Analysis on Quality of Red Wine"
+author: "Sai Saketh Boyanapalli"
+date: "October 15, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = F, message = F)
+```
+
+```{r library required}
+library(ggplot2)
+library(dplyr)
+library(VIM)
+library(gridExtra)
+library(reshape2)
+library(car)
+library(GGally)
+library(scales)
+library(memisc)
+library(outliers)
+```
+```{r LOading Dataset into R}
+redWine <- read.csv("RedWineQuality.csv") # Load the Data
+```
+
+>**RedWineQualityDataSet**: This data set contains data on 1599 samples of red wines, there chemical Properties and quality. The inputs include objective tests and the output is based on sensory data from a wine expert(median of at least 3 evaluations from expert are taken) 
+
+I want to perform a exploratory data analysis on this data set to find interesting relationships between the different chemical properties and how they all relate to quality of the Red wine.
+
+# Univariate Analysis
+
+```{r echo = TRUE}
+str(redWine) # a look at structure of the data
+names(redWine) # different variables in our data set.
+dim(redWine) # dimensions of our data.
+summary(redWine) # a brief summary of all variables in the data set.
+aggr(redWine) # A look at missigness in our data (function taken from VIM library)
+```
+
+#### We can see that our data set is complete.
+
+```{r Creating boxplot for all variables in our dataset}
+ggplot(melt(subset(redWine, select = -X)), aes(factor(variable), value))+ 
+  geom_boxplot() + 
+  facet_wrap(~variable, scale="free") +
+  ggtitle("Boxplot of Different Checmical properties") +
+  theme_bw()
+```
+
+This boxplot is a good start to outlier identification we can see that few variables have lot of ouliers and some of them have only few outliers. we can get a better understanding by taking a look at each variable.
+
+#### A look at how the data is distributed for each of the chemical properties
+
+```{r Histogram for all variables in our Dataset}
+ggplot(melt(subset(redWine, select = -c(X,quality))), aes(value))+ 
+  geom_histogram() + 
+  facet_wrap(~variable, scale="free") +
+  ggtitle("Histogram for each the checmial Properties") +
+  theme_bw()
+
+```
+
+As indicated by the boxplot of chemical properties the plots with most outliers have skewed distributions in case of histogram.
+
+if we look at histograms of __fixed Acidity, Density, PH, sulphates, volatile Acidity__ they all follow distributions close to normal. and have very few outliers so, we can ignore those outliers for now.
+
+Now we are left with few chemical properties which might need a closer look.
+
+```{r creating a function for histogram}
+plot.hist <- function(x.var, df, bw){
+  ggplot(df, aes_string(x = x.var)) +
+    geom_histogram(binwidth = bw) + 
+    theme_bw()
+}
+```
+
+### Exploring Quality
+
+```{r Exploring Quality}
+ggplot(aes(x = as.factor(quality)), data = redWine)+
+       geom_bar()+
+       xlab("Wine Quality rating") + ylab("Count") +
+       ggtitle("Bar of Wine Quality") + theme_bw()
+summary(redWine$quality) # summary of quality of redwine
+```
+
+We can see that minimum rated quality is 3 in our data set and the best quality is 8, these were indicated as outliers in the above boxplot which means only few of the red wines received low quality and high quality rating and most of the ratings are in the middle. And another interesting finding is none of them received Highest quality rating - 10 or lowest quality rating - 0.
+
+lets create factors for quality this might be useful later.
+
+```{r echo=TRUE}
+redWine$qualityFactor <- factor(redWine$quality) # created new variable in data frame for quality factors.
+```
+
+Let's look at other variables that are not normal.
+
+### Exploring residual.sugar
+
+```{r Exploring residual.sugar}
+plot.hist('residual.sugar', redWine, 0.1) +
+  ggtitle('Distribution of residual sugar')
+```
+
+The distribution of __Residual.sugar__, the distribution is skewed to left and there are many outliers to the right.
+
+```{r}
+plot.hist('residual.sugar', subset(redWine, residual.sugar < 4), 0.1) +
+  ggtitle('After removing outliers')
+# Removing those outliers data seems to be normally distributed
+```
+
+removing all the residual.sugar > 4 from the data the histogram changes from being skewed distibution to a normal distribution. We only have few samples with residual sugar content greater than 4 this might be due to less preference of sweety alcohol. This will be useful when modelling.
+
+```{r}
+plot.hist('residual.sugar', redWine, 0.1) +
+  scale_x_log10() + ggtitle('Using Log scale')
+# this yeilds a much nicer normal distribution
+```
+
+Applying log scale also yeilds close to normal distribution of data.
+
+### Exploring citric acid
+
+```{r Exploring citric acid}
+plot.hist('citric.acid', subset(redWine, citric.acid < 0.9), 0.09) + ggtitle('Histogram for Citric Acid')
+```
+
+After removing outliers the distribution of citric acid is not normal. but instead close to uniform. 
+
+### Exploring Chlorides
+
+```{r Exploring Chlorides}
+plot.hist('chlorides', redWine, 0.1) + ggtitle('Histogram for Chlorides')
+symbox(redWine$chlorides)
+```
+
+This symbox fuction will help us decide which powers will help us get closer to normal distribution for our data. if we look at the output of symbox fuction, the boxplot with few outliers will give us a power transformation which will distribute our data close to normal.
+
+for chlorodes log transformation might yeild best result.
+
+### Exploring free Sulfur.dioxide
+
+```{r Exploring free Sulfur.dioxide}
+plot.hist('free.sulfur.dioxide', redWine, 0.9) + ggtitle('Histogram for free.sulfurdioxide')
+```
+
+The distribution is skewed to left.
+
+```{r}
+symbox(redWine$free.sulfur.dioxide) # log transformation will yeild est result
+```
+
+Looks like log transformation will yeild a distribution close to normal
+
+```{r}
+plot.hist('free.sulfur.dioxide', redWine, 0.4) + ggtitle('Histogram for free.sulfurdioxide log scale') + scale_x_log10()
+```
+
+Our above assumptions seems to hold true this yeilds a close to normal distribution.
+
+### Exploring Total sulfur.dioxide
+
+```{r Exploring Total sulfur.dioxide}
+plot.hist('total.sulfur.dioxide', redWine, 4) + ggtitle('Histogram for Total.sulfurdioxide')
+```
+
+The distribution of total sulfurdioxide looks skewed to left.
+
+```{r}
+plot.hist('total.sulfur.dioxide', redWine, 0.07) + scale_x_log10() + 
+  ggtitle('Histogram for Total.sulfurdioxide using Log scale') # a much nicer distribution when using log scale
+```
+
+The similar trend follows here, the log transformation yeilds a close to normal distribution
+
+### Exploring Sulphates
+
+```{r Exploring sulphates}
+p1 <- plot.hist('sulphates', redWine, 0.1) + ggtitle('Histogram for sulphates')
+
+p2 <- plot.hist('sulphates', redWine, 0.08) + 
+scale_x_log10() + 
+  ggtitle('Histogram for sulphates using Log scale')
+
+grid.arrange(p1,p2,ncol = 1)
+```
+
+Similar trend for sulphates. 
+
+### Exploring Alcohol
+
+```{r Exploring Alcohol}
+plot.hist('alcohol', redWine, 0.5) + 
+ggtitle('Histogram for Alcohol')
+```
+
+If we look at distributions for chemical properties they all tend to follow normal distributions when we change the scale to log10 for most of the distributions except for citric acid which seems to be closer to uniform distribution all the other follow close to normal distribution.
+
+In our data set the chemical properties of __free sulfur dioxide and total sulphur dioxide__ are in milligrams per 1dm^3 where as the other chemical properties are in grams per dm^3 to maintain consistency thoroughout I will be converting those two to g/dm^3.
+
+```{r}
+redWine$free.sulfur.dioxide1 <- redWine$free.sulfur.dioxide*100 # storing them into new variables
+redWine$total.sulfur.dioxide1 <- redWine$total.sulfur.dioxide*100  
+```
+w
+
+# Bivariate Plots Section
+
+```{r echo=FALSE, Bivariate_Plots}
+pairs(subset(redWine, select = -c(total.sulfur.dioxide1,free.sulfur.dioxide1,qualityFactor))) #removing columns Quality Factor, Converted free & total sulfur dioxide
+```
+
+To look at relationship between all variables in data set
+
+```{r}
+cor(subset(redWine, select = -c(total.sulfur.dioxide1,free.sulfur.dioxide1,qualityFactor))) #removing columns Quality Factor, Converted free, total sulfur dioxide
+```
+
+Corelation between all variables in data set
+
+```{r}
+plot.gg <- function(x.var, y.var, df){
+  ggplot(df, aes_string(x = x.var, y = y.var ))
+} # this fuction just helps in creating a ggplot syntax for two variables.
+
+plot.gg("fixed.acidity","density", redWine) +
+  geom_point() + geom_smooth(method = 'lm') # scatterplot (density/fixed_acidity)
+```
+
+scatterplot for fixed acidity over density, this shows they are closely related.
+
+```{r}
+plot.gg("residual.sugar","density", redWine) +
+  geom_point() + geom_smooth(method = 'lm') # scatterplot (density/residual.sugar)
+cor.test(redWine$residual.sugar,redWine$density) # correlation coefficient
+```
+
+scatterplot for residual.sugar over density, this shows they are many outliers in the data. 
+
+```{r}
+plot.gg("alcohol","density", redWine) +
+  geom_point() # scatterplot (density/alcohol)
+cor.test(redWine$alcohol,redWine$density) # correlation coefficient
+```
+
+We can see a negative relationship between density over alcohol with correlation coefficeint -0.49
+
+```{r}
+ggplot(aes( y = fixed.acidity, x = pH), data = redWine) +
+  geom_point() # scatterplot (pH/fixed_acidity)
+cor.test(redWine$fixed.acidity,redWine$pH) # correlation coefficient
+```
+
+we can see that fixed acidity and ph are negatively correlated.
+
+```{r}
+ggplot(data = redWine, aes(x = qualityFactor, y = alcohol)) +
+  geom_boxplot() + theme_bw()
+```
+
+How does relationship of alcohol and quality change for different qualities of red wine. we can see mean alcohol % by volume increases with quality.
+
+```{r}
+ggplot(data = redWine, aes(x = qualityFactor, y = volatile.acidity)) +
+  geom_boxplot() + theme_bw()
+```
+
+How does relationship of volatile acidity and quality change for different qualities of red wine.  we can see mean volatile Acidity decreases with increase in qulaity of redWine.
+
+```{r}
+ggplot(data = redWine, aes(x = qualityFactor, y = sulphates)) +
+  geom_boxplot() + theme_bw()
+```
+
+How does the mean of sulphates changes with quality.
+
+In the above section I have created different plots to see if there is a relationship between quality and other chemical properties & realtionship between other chemical properties in general.
+
+The plots that require further analysis to gain more insight were scatterplot matrix along with correlation coefficeint table, relationship between quality over alcohol, sulphates and volatile acidity.
+
+Few relations between other chemical properties pH over fixed.acidity and density over fixed.acidity.
+
+#Bivariate Analysis:
+
+```{r Scatterplot matrix}
+redWine$X <- NULL
+pairs(subset(redWine, select = -c(total.sulfur.dioxide1,free.sulfur.dioxide1,qualityFactor))) #removing columns Quality Factor, Converted free & total sulfur dioxide 
+```
+
+Here I have created a scatter plot matrix to take a look at correlation between variables in our data set visually.
+
+```{r corelation test}
+cor(subset(redWine, select = -c(total.sulfur.dioxide1,free.sulfur.dioxide1,qualityFactor))) #removing columns Quality Factor, Converted free, total sulfur dioxide
+```
+
+Then performed a correlation test to get corelation coefficients between different variables.
+
+From the two plots we can see that __quality is kind of related to Alcohol > Volatile Acidity > sulphates__ of all available chemical properties.
+
+If we look at relationship between chemical properties. pH is highly correlated to fixed acidity and fixed acidity and desity are correlated. 
+
+```{r}
+ggplot(aes( y = fixed.acidity, x = pH), data = redWine) +
+  geom_point(alpha = 0.3, position = "jitter", color = 'red') + 
+  ggtitle("Scatterplot of Fixed Acidity vs pH") +
+  xlab('pH') + 
+  ylab('Fixed Acidity g/dm^3 ') +
+  theme_bw() +
+  geom_smooth(method = 'lm')
+# scatterplot (pH/fixed_acidity)
+```
+
+__PH is negatively related to acidity__ which is a well know fact that the pH value decreases with increase in acidity
+
+```{r relation between fixed acidity & density}
+ggplot(aes( x= fixed.acidity, y = density), data = redWine) +
+  geom_point(alpha = 0.3, position = "jitter", color = 'blue') + 
+  ggtitle("Scatterplot of Density vs Fixed Acidity") +
+  ylab('Density g/cm^3') + 
+  xlab('Fixed Acidity g/dm^3') +
+  theme_bw() +
+  geom_smooth(method = 'lm')
+# scatterplot (density/fixed_acidity)
+```
+
+Density is positevly correlated to fixed acidity with a correlation coefficient of 0.66.
+
+```{r relationship between alcohol and quality}
+alcoholp1 <-  ggplot(aes( y = alcohol, x = qualityFactor), data = redWine) +
+  geom_point(aes(color = qualityFactor), alpha = 0.7, position = "jitter") +
+  ggtitle('Scatterplot of Alcohol over Quality') +
+  xlab('Quality') +
+  ylab('Alcohol % by volume') +
+  theme_bw() +
+  scale_color_brewer(type = 'seq')
+
+alcoholp2 <- ggplot(data = redWine, aes(x = qualityFactor, y = alcohol)) +
+  geom_boxplot(aes(color = qualityFactor)) + theme_bw() +
+  ggtitle('Boxplot of Alcohol over Quality') +
+  scale_color_brewer(type = 'seq') + 
+  ylab('Alcohol % by volume') +
+  xlab('Quality')
+
+cor.test(redWine$alcohol, redWine$quality)
+
+grid.arrange(alcoholp1,alcoholp2, ncol = 1)
+```
+
+Looking at the above scatter plot we can see a positive realtionship between __quality and alcohol__
+This is more evident from the boxplot when we can see an increasing trend for mean of alcohol over quality.
+
+```{r relationship between volatile acidity and quality}
+volatileAcidityp1 <-  ggplot(aes( y = volatile.acidity, x = qualityFactor), data = redWine) +
+  geom_point(aes(color = qualityFactor), position = "jitter") +
+  ggtitle('Scatterplot of Volatile Acidity over Quality') +
+  xlab('Quality') +
+  ylab('Volatile Acidity g/dm^3') +
+  theme_bw() +
+  scale_color_brewer(type = 'seq')
+  
+
+volatileAcidityp2 <- ggplot(data = redWine, aes(x = qualityFactor, y = volatile.acidity)) +
+  geom_boxplot(aes(color = qualityFactor)) + theme_bw() +
+  ggtitle('Boxplot of Volatile Acidity over quality') +
+  ylab('Volatile Acidity g/dm^3') +
+  xlab('Quality') +
+  scale_color_brewer(type = 'seq')
+  
+
+cor.test(redWine$volatile.acidity, redWine$quality) # correlation tes
+grid.arrange(volatileAcidityp1, volatileAcidityp2, ncol = 1)# arraging plots
+```
+
+Here we see a inverse linear relationship between quality and Volatile Acidity. the trend is very sutle.
+similarly, it is more evident in the boxplot of volatile acidity over quality.
+
+As the amount of volatile Acidity (acetic acid) in wine increase it leads to unpleasant, vulger taste of wine. which is evident with this inverse relationship with quaity of wine.
+
+```{r}
+sulphatesp1 <-  ggplot(aes( y = sulphates, x = quality), data = redWine) +
+  geom_point(aes(color = qualityFactor), position = "jitter") +
+  ggtitle('Scatterplot of Sulphates Vs Quality') +
+  xlab('Quality') +
+  ylab('Sulphates g/dm^3') +
+  theme_bw() +
+  scale_color_brewer(type = 'seq')
+
+sulphatesp2 <- ggplot(data = redWine, aes(x = qualityFactor, y = sulphates)) +
+  geom_boxplot(aes(color = qualityFactor)) + theme_dark() +
+  ggtitle('Boxplot of Sulphates over quality') +
+  ylab('Sulphates g/dm^3') +
+  xlab('Quality') +
+  scale_color_brewer(type = 'seq')
+
+cor.test(redWine$sulphates, redWine$quality)
+
+grid.arrange(sulphatesp1, sulphatesp2, ncol = 1) # arraging plots
+```
+
+there is a slight linear relationship between quality and sulphates but as we look at box plot we can see as the the quality is increasing there are few outliers in the data which might be pulling the mean towards a higher value. 
+
+Correlation test reveals that there is slight to no relationship between quality and sulphates. As we consider correlation coefficient > 0.3 to have any kind of relationship.
+
+# Multivariate plots section
+
+```{r echo = FALSE}
+# performing multiple linear regression to determine quality using chemical properties
+m1 <- lm(quality ~ alcohol, data = redWine)
+m2 <- update(m1, ~ . + log10(sulphates))
+m3 <- update(m2, ~ . + volatile.acidity)
+m4 <- update(m3, ~ . + log10(residual.sugar))
+m5 <- update(m4, ~ . + log10(chlorides))
+m6 <- update(m5, ~ . + log10(free.sulfur.dioxide1))
+m7 <- update(m6, ~ . + log10(total.sulfur.dioxide1))
+m8 <- update(m7, ~ . + density)
+m9 <- update(m8, ~ . + pH)
+m10 <- update(m9, ~ . + alcohol)
+m11 <- update(m10, ~ . + citric.acid)
+mtable(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11) # displaying results
+```
+
+here I have used multiple linear regression to predict the quality using chemical properties.
+I have converted the chemical properties to log10 based on previous findings from univariate analysis.
+
+Alcohol, Sulphates & volatile acidity account for most variation in the quality.
+
+```{r}
+# creating new data frame by removing all the outliers indicated by boxplot
+
+# performing multiple linear regression on this new data set to determine quality using chemical properties
+
+newdataredwine <- subset(redWine, residual.sugar < 4 &
+                          citric.acid < 0.75 & 
+                          sulphates < 1.25 & 
+                          chlorides < 0.2 & 
+                          total.sulfur.dioxide < 1000 &
+                          free.sulfur.dioxide < 400)
+
+
+n1 <- lm(quality ~ alcohol, data = newdataredwine)
+n2 <- update(n1, ~ . + sulphates)
+n3 <- update(n2, ~ . + volatile.acidity)
+n4 <- update(n3, ~ . + residual.sugar)
+n5 <- update(n4, ~ . + chlorides)
+n6 <- update(n5, ~ . + free.sulfur.dioxide1)
+n7 <- update(n6, ~ . + total.sulfur.dioxide1)
+n8 <- update(n7, ~ . + density)
+n9 <- update(n8, ~ . + pH)
+n10 <- update(n9, ~ . + alcohol)
+n11 <- update(n10, ~ . + citric.acid)
+mtable(n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11)
+
+```
+
+similarly performed multiple linear regression but here I have removed all the outlier's from the data as sepecified by boxplot from univariate analysis section.  
+
+We can see an improvement in the overall value of R - Squared compared to the above one.
+
+Alcohol, Sulphates & volatile acidity account for most variation in the quality.
+
+```{r}
+
+ggplot(aes( x= fixed.acidity, y = density), data = redWine) +
+  geom_point(aes(color = factor(quality)), alpha = 0.5, position = "jitter") + geom_smooth(method = 'lm') # scatterplot (density/fixed_acidity)
+```
+
+we can see the relationship between fixed acidity and density with points colored with respect to quality.
+
+```{r}
+ggplot(aes( y = alcohol, x = density), data = redWine) +
+  geom_point(aes(color = factor(quality)),alpha = 0.4)
+```
+
+scatterplot of alcohol over density with points colored with respect to quality.
+
+```{r}
+ggplot(aes( y = alcohol, x = sulphates), data = redWine) +
+  geom_point(aes(color = qualityFactor), alpha = 0.2, position = "jitter")
+```
+
+scatterplot of alcohol over sulphates with points colored with respect to quality.
+
+```{r}
+final1 <- ggplot(aes( y = alcohol, x = volatile.acidity, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.9, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) +
+  ggtitle('Scatterplot of Alcohol vs Volatile Acidity')
+
+final2 <- ggplot(aes( y = alcohol, x = sulphates, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.9, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) + theme_bw() +
+  ggtitle('Scatterplot of Alcohol vs Sulphates')
+
+final3 <- ggplot(aes( y = sulphates, x = volatile.acidity, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.9, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) +
+  ggtitle('Scatterplot of Sulphates vs Volatile Acidity')
+
+grid.arrange(final1, final2, final3, ncol = 1)
+```
+
+Looking at the variation from the correlation test and multiple linear regression I have created the above plots to look for the relationship between quality and other chemical properties. These plots are discussed in detail below.  
+
+# Multivariate Analysis:
+
+```{r Density over fixed acidity scatterplot}
+ggplot(aes( x= fixed.acidity, y = density), data = redWine) +
+  geom_point(aes(color = qualityFactor), alpha = 0.7, position = "jitter") +
+  geom_smooth(method = 'lm') +
+  ggtitle('Scatterplot of Density over Fixed acidity') +
+  ylab('Density g/cm^3') +
+  xlab('Fixed Acidity g/dm^3') + theme_bw()
+# scatterplot (density/fixed_acidity)
+```
+
+Here we can see that for a given value of Fixed Acidity the lower density generally tends to yeild a better quality of wine.
+
+```{r relationship between quality - alcohol, volatile acidity, sulphates 1}
+ggplot(aes( y = alcohol, x = volatile.acidity, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.7, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) +
+  ggtitle('Scatterplot of Alcohol vs Volatile Acidity') +
+  ylab('Alcohol % by volume') +
+  xlab('Volatile Acidity g/dm^3')
+
+ggplot(aes( y = alcohol, x = sulphates, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.7, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) + theme_bw() +
+  ggtitle('Scatterplot of Alcohol vs Sulphates') +
+  ylab('Alcohol % by volume') +
+  xlab('Sulphates g/dm^3')
+
+ggplot(aes( y = sulphates, x = volatile.acidity, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.7, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) +
+  ggtitle('Scatterplot of Sulphates vs Volatile Acidity') +
+  ylab('Sulphates g/dm^3') +
+  xlab('Volatile Acidity g/dm^3')
+```
+
+This graph revalidates our claim that quality is somewhat linearly related to __Alcohol & Sulphates__ and inversely related to __Volatile Acidity__
+
+We can see that for first plot the quality increases with Alcohol and decreases with Volatile Acidity.
+
+In Second plot Quality increases with Alcohol and sulphates. 
+
+Thrid plot it Increases with sulphates and decreases with Volatile Acidity.
+
+# Final Plots & Summary
+
+There are many interesting plots that we have come across during the analysis of redwine sample dataset.
+
+But these plots have helped us answer the question that we have raised at the beginning regarding the quality of red wine.
+
+
+```{r bar plot of quality}
+ggplot(aes(x = as.factor(quality)), data = redWine)+
+       geom_bar()+
+       xlab("Wine Quality rating") + ylab("Count") +
+       ggtitle("Bar of Wine Quality") + theme_bw()
+```
+
+This plot helped us see that there are many medium quality red wines in our sample data set and the lowest rated quality sample is 3 and the highest rated quality sample is 8. There are no redwines with highest quality rating 10 or lowest quality rating 0.
+
+```{r Density over fixed acidity scatterplot 1}
+ggplot(aes( x= fixed.acidity, y = density), data = redWine) +
+  geom_point(aes(color = qualityFactor), alpha = 0.5, position = "jitter") +
+  geom_smooth(method = 'lm') +
+  ggtitle('Scatterplot of Density over Fixed acidity') +
+  scale_color_brewer(type = 'seq') +
+  ylab('Density g/cm^3') +
+  xlab('Fixed Acidity g/dm^3')
+# scatterplot (density/fixed_acidity)
+```
+
+The density and fixed acidity have a linear relationshio among them and these are most related in our data set. interesting enough we can see that the quality for a value of Fixed acidity decreases with an increase in density.
+
+```{r relationship between quality - alcohol, volatile acidity, sulphates }
+final1 <- ggplot(aes( y = alcohol, x = volatile.acidity, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.7, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) +
+  ggtitle('Scatterplot of Alcohol vs Volatile Acidity') +
+  ylab('Alcohol % by volume') +
+  xlab('Volatile Acidity g/dm^3')
+
+final2 <- ggplot(aes( y = alcohol, x = sulphates, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.7, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) + theme_bw() +
+  ggtitle('Scatterplot of Alcohol vs Sulphates') +
+  ylab('Alcohol % by volume') +
+  xlab('Sulphates g/dm^3')
+
+final3 <- ggplot(aes( y = sulphates, x = volatile.acidity, color = qualityFactor), data = redWine) +
+  geom_point(alpha = 0.7, position = "jitter", size = 1) +
+ scale_color_brewer(type = 'seq', guide_legend(title = 'Quality')) +
+  ggtitle('Scatterplot of Sulphates vs Volatile Acidity') +
+  ylab('Sulphates g/dm^3') +
+  xlab('Volatile Acidity g/dm^3')
+
+grid.arrange(final1, final2, final3, ncol = 1)
+```
+
+This plot helps to potray the chemical properties with strong/weak relationship to quality in our sample data set of red wines.
+
+As we have found before __ % of Alcohol and amount of sulphates__ present in redwine tend to have positve relationship with quality of redwine. whereas __Amt of Volatile Acidity__ tends to have inverse relationship with quality of red wine.
+
+```{r}
+mtable(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11) # multiple linear regression
+```
+
+
+I have perfromed a multiple regression on all the available chemical properties againts quality to find which chemical properties offer maximum variance i.e., r^2 value interesting enough i found that Alcohol, volatile acidity and sulphates offer upto 34.5% variance and the overall value of r^2 is 36.8% which indicates that the other chemical properties govern little variance of quality.
+
+This answers over question earlier that properties Alcohol, volatile acidity and sulphates account for quality of redwine but these have a very small influence over the rating of redwine none the less offer something when compared to other chemical properties. 
+
+# Reflection:
+
+As the first data set available in the projects page I found myself tending towrds this one. And it was taking about redwine of which I have heard plenty of healthy benifits about and I myself started drinking in right does to get the benifits. so, i was interested about what chemical properties are in redwine and how they all govern quality.
+
+EDA module in udacity and problem sets for analysis of univariate, bivariate and multivariate variables availabe in our data set made me familiar with the process of exploratory data analysis.
+
+when I initially started looking at the data and performed univariate analysis nothing excited me than I was not understanding anything. I later tracked back to basics that I have to get familiar with documentation then can figure out whats happening with the variables.
+
+This helped me and those graphs started making sense. Another tricky part was that I thought there will be a clear relationship with chemical properties and quality expect few but that was not the case. then realized whats said in theory only reflects a bit practically.
+
+When I have drawn scatterplot for chemical properties with high correlation coefficient the graphs were not showing a trend I was expecting than I figured out that boxplot will help showing the relationship.
+
+I have initially missed that quality is ordinal and i have to use sequential color pallete and bar plot is used to dipict an ordinal variable.
+
+I feel like everything was straight forward except finding the relationship. programming with r is simple and easy thanks to practice problem sets.
