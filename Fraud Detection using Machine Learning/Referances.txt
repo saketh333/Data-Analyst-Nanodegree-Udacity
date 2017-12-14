@@ -1,0 +1,7 @@
+https://en.wikipedia.org/wiki/Enron_scandal
+https://pythonspot.com/matplotlib-bar-chart/  
+https://stackoverflow.com/questions/33091376/python-what-is-exactly-sklearn-pipeline-pipeline
+https://stackoverflow.com/questions/39839112/the-easiest-way-for-getting-feature-names-after-running-selectkbest-in-scikit-le
+https://stackoverflow.com/questions/32543654/scikit-learn-get-selected-features-when-using-selectkbest-within-pipeline?rq=1
+https://machinelearningmastery.com/grid-search-hyperparameters-deep-learning-models-python-keras/
+http://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedShuffleSplit.html
